@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Система управления студентами (Fun-Student UI)</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { margin: 0; padding: 0; background-color: #f4f6f9; color: #333; }
+        .container { max-width: 1000px; margin: 40px auto; padding: 20px; }
+        .card { background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        h1, h2, h3 { margin-top: 0; color: #2c3e50; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+        button { padding: 10px 16px; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-danger { background-color: #e74c3c; color: white; }
+        .btn-secondary { background-color: #95a5a6; color: white; margin-right: 5px; margin-bottom: 5px; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+        .badge { background: #34495e; color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
+        .alert { padding: 12px; border-radius: 5px; margin-bottom: 15px; display: none; font-size: 14px; }
+        .alert-error { background-color: #fdecea; color: #c0392b; border: 1px solid #f5c6cb; }
+        .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #e1e4e8; padding: 10px; text-align: left; font-size: 14px; }
+        th { background-color: #f8f9fa; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .hidden { display: none; }
+        .quick-login { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Уведомления об ошибках и успехе -->
+    <div id="alertBox" class="alert"></div>
+
+    <!-- ЭКРАН 1: АВТОРИЗАЦИЯ -->
+    <div id="loginSection" class="card" style="max-width: 450px; margin: 60px auto;">
+        <h2>Вход в систему</h2>
+        <div class="form-group">
+            <label for="loginEmail">Email (Логин)</label>
+            <input type="text" id="loginEmail" placeholder="Введите email, например admin@example.com">
+        </div>
+        <div class="form-group">
+            <label for="loginPassword">Пароль</label>
+            <input type="password" id="loginPassword" placeholder="Введите пароль">
+        </div>
+        <button class="btn-primary" style="width: 100%;" onclick="login()">Войти</button>
+
+        <div class="quick-login">
+            <div style="margin-bottom: 8px; font-weight: bold;">Быстрая подстановка для тестирования:</div>
+            <button class="btn-secondary" onclick="fillCredentials('admin@example.com', 'admin')">ADMIN</button>
+            <button class="btn-secondary" onclick="fillCredentials('teacher@example.com', 'teacher')">TEACHER</button>
+            <button class="btn-secondary" onclick="fillCredentials('superadmin@example.com', 'superAdmin')">SUPER_ADMIN</button>
+            <button class="btn-secondary" onclick="fillCredentials('student@example.com', 'student')">STUDENT</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 2: ГЛАВНАЯ ПАНЕЛЬ ПОСЛЕ ВХОДА -->
+    <div id="appSection" class="hidden">
+        <div class="card">
+            <div class="header-bar">
+                <div>
+                    <h2 style="margin: 0;">Панель управления студентами</h2>
+                    <div style="margin-top: 5px; font-size: 14px;">
+                        Пользователь: <strong id="currentUserEmail"></strong>
+                        Роли: <span id="currentUserRoles"></span>
+                    </div>
+                </div>
+                <button class="btn-danger" onclick="logout()">Выйти</button>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <button class="btn-primary" onclick="loadStudents()">🔄 Загрузить / Обновить список студентов (GET /api/v1/student)</button>
+            </div>
+
+            <!-- Таблица студентов -->
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Имя (Name)</th>
+                    <th>Фамилия (Surname)</th>
+                    <th>Действия</th>
+                </tr>
+                </thead>
+                <tbody id="studentsTableBody">
+                <tr><td colspan="4" style="text-align: center;">Нажмите «Загрузить список студентов»</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Карточка подробной информации о студенте -->
+        <div id="studentDetailCard" class="card hidden">
+            <h3>Подробная информация о студенте (GET /api/v1/student/{id})</h3>
+            <p id="studentDetailContent" style="background: #f8f9fa; padding: 12px; border-radius: 5px; font-family: monospace;"></p>
+        </div>
+
+        <div class="grid-2">
+            <!-- Форма добавления студента (POST /api/v1/student/save) -->
+            <div class="card">
+                <h3>Добавить студента (POST /save)</h3>
+                <div class="form-group">
+                    <label>Имя (name)</label>
+                    <input type="text" id="createName" placeholder="Иван">
+                </div>
+                <div class="form-group">
+                    <label>Фамилия (surname)</label>
+                    <input type="text" id="createSurname" placeholder="Петров">
+                </div>
+                <div class="form-group">
+                    <label>Телефон (phone_number)</label>
+                    <input type="text" id="createPhone" placeholder="+79991234567">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="createEmail" placeholder="ivan@example.com">
+                </div>
+                <button class="btn-success" onclick="createStudent()">Сохранить студента</button>
+            </div>
+
+            <!-- Форма обновления контактов студента (PUT /api/v1/student/{id}) -->
+            <div class="card">
+                <h3>Обновить контакты (PUT /{id})</h3>
+                <div class="form-group">
+                    <label>ID студента</label>
+                    <input type="number" id="updateId" placeholder="Например: 1">
+                </div>
+                <div class="form-group">
+                    <label>Новый телефон (phoneNumber)</label>
+                    <input type="text" id="updatePhone" placeholder="+79990001122">
+                </div>
+                <div class="form-group">
+                    <label>Новый Email</label>
+                    <input type="email" id="updateEmail" placeholder="new_email@example.com">
+                </div>
+                <button class="btn-warning" onclick="updateStudent()">Обновить данные</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let jwtToken = localStorage.getItem('jwtToken') || null;
+
+    function showAlert(message, isError = false) {
+        const box = document.getElementById('alertBox');
+        box.style.display = 'block';
+        box.className = 'alert ' + (isError ? 'alert-error' : 'alert-success');
+        box.innerText = message;
+        setTimeout(() => { box.style.display = 'none'; }, 6000);
+    }
+
+    function fillCredentials(email, password) {
+        document.getElementById('loginEmail').value = email;
+        document.getElementById('loginPassword').value = password;
+    }
+
+    // 1. АВТОРИЗАЦИЯ: POST /api/v1/auth/login
+    async function login() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
+
+        try {
+            const response = await fetch('/api/v1/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                showAlert(`Ошибка авторизации (HTTP ${response.status}): Неверный логин, пароль или формат email. ${errText}`, true);
+                return;
+            }
+
+            const data = await response.json();
+            jwtToken = data.token;
+            localStorage.setItem('jwtToken', jwtToken);
+
+            document.getElementById('currentUserEmail').innerText = email;
+            document.getElementById('currentUserRoles').innerHTML = (data.roles || [])
+                .map(r => `<span class="badge">${r}</span>`).join(' ');
+
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('appSection').classList.remove('hidden');
+            showAlert('Авторизация прошла успешно! Токен получен.');
+            loadStudents();
+        } catch (err) {
+            showAlert('Ошибка соединения с сервером: ' + err.message, true);
+        }
+    }
+
+    function logout() {
+        jwtToken = null;
+        localStorage.removeItem('jwtToken');
+        document.getElementById('appSection').classList.add('hidden');
+        document.getElementById('loginSection').classList.remove('hidden');
+        document.getElementById('studentDetailCard').classList.add('hidden');
+        showAlert('Вы вышли из системы.');
+    }
+
+    // 2. ПОЛУЧЕНИЕ СПИСКА СТУДЕНТОВ: GET /api/v1/student
+    async function loadStudents() {
+        try {
+            const response = await fetch('/api/v1/student', {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + jwtToken }
+            });
+
+            if (!response.ok) {
+                showAlert(`Доступ запрещен или ошибка запроса (HTTP ${response.status}). У вашей роли нет прав на просмотр списка студентов!`, true);
+                document.getElementById('studentsTableBody').innerHTML =
+                    `<tr><td colspan="4" style="color:red; text-align:center;">HTTP ${response.status} — Доступ запрещен для текущей роли</td></tr>`;
+                return;
+            }
+
+            const data = await response.json();
+            // Поддержка любого названия поля списка внутри StudentResponseList
+            const list = Array.isArray(data) ? data : (data.students || data.studentResponseForList || data.studentList || Object.values(data)[0] || []);
+
+            const tbody = document.getElementById('studentsTableBody');
+            tbody.innerHTML = '';
+
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Список студентов пуст</td></tr>';
+                return;
+            }
+
+            list.forEach(st => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${st.id ?? '-'}</td>
+                    <td>${st.name ?? '-'}</td>
+                    <td>${st.surname ?? '-'}</td>
+                    <td>
+                        <button class="btn-primary" style="padding:5px 10px;" onclick="viewStudent(${st.id})">Инфо</button>
+                        <button class="btn-danger" style="padding:5px 10px;" onclick="deleteStudent(${st.id})">Удалить</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            showAlert('Ошибка при загрузке студентов: ' + err.message, true);
+        }
+    }
+
+    // 3. ПРОСМОТР ПО ID: GET /api/v1/student/{id}
+    async function viewStudent(id) {
+        try {
+            const response = await fetch(`/api/v1/student/${id}`, {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + jwtToken }
+            });
+
+            if (!response.ok) {
+                showAlert(`Ошибка получения карточки студента (HTTP ${response.status})`, true);
+                return;
+            }
+
+            const data = await response.json();
+            document.getElementById('studentDetailCard').classList.remove('hidden');
+            document.getElementById('studentDetailContent').innerText = JSON.stringify(data, null, 2);
+            document.getElementById('updateId').value = id;
+        } catch (err) {
+            showAlert('Ошибка: ' + err.message, true);
+        }
+    }
+
+    // 4. СОЗДАНИЕ СТУДЕНТА: POST /api/v1/student/save
+    async function createStudent() {
+        const payload = {
+            name: document.getElementById('createName').value.trim(),
+            surname: document.getElementById('createSurname').value.trim(),
+            phone_number: document.getElementById('createPhone').value.trim(),
+            email: document.getElementById('createEmail').value.trim()
+        };
+
+        try {
+            const response = await fetch('/api/v1/student/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + jwtToken
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                showAlert(`Ошибка создания студента (HTTP ${response.status}). Доступно только для роли ADMIN!`, true);
+                return;
+            }
+
+            showAlert('Студент успешно добавлен!');
+            loadStudents();
+        } catch (err) {
+            showAlert('Ошибка: ' + err.message, true);
+        }
+    }
+
+    // 5. ОБНОВЛЕНИЕ СТУДЕНТА: PUT /api/v1/student/{id}
+    async function updateStudent() {
+        const id = document.getElementById('updateId').value.trim();
+        if (!id) {
+            showAlert('Укажите ID студента для обновления!', true);
+            return;
+        }
+
+        const payload = {
+            phoneNumber: document.getElementById('updatePhone').value.trim(),
+            email: document.getElementById('updateEmail').value.trim()
+        };
+
+        try {
+            const response = await fetch(`/api/v1/student/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + jwtToken
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                showAlert(`Ошибка обновления (HTTP ${response.status}). Доступно только для роли ADMIN!`, true);
+                return;
+            }
+
+            showAlert(`Данные студента #${id} успешно обновлены!`);
+            viewStudent(id);
+            loadStudents();
+        } catch (err) {
+            showAlert('Ошибка: ' + err.message, true);
+        }
+    }
+
+    // 6. УДАЛЕНИЕ СТУДЕНТА: DELETE /api/v1/student/{id}
+    async function deleteStudent(id) {
+        try {
+            const response = await fetch(`/api/v1/student/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + jwtToken }
+            });
+
+            if (!response.ok) {
+                showAlert(`Ошибка удаления (HTTP ${response.status}). Доступно только для роли ADMIN!`, true);
+                return;
+            }
+
+            showAlert(`Студент #${id} удален.`);
+            loadStudents();
+        } catch (err) {
+            showAlert('Ошибка: ' + err.message, true);
+        }
+    }
+</script>
+</body>
+</html>

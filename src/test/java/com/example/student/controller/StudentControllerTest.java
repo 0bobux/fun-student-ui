@@ -84,4 +84,18 @@ class StudentControllerTest {
 
         verify(studentService, times(1)).deleteById(studentId);
     }
+
+    @Test
+    @DisplayName("Тест полной информации о студенте (getFullInfoById)")
+    void testGetFullInfoById() {
+        Long studentId = 1L;
+        StudentFullResponse mockResponse = new StudentFullResponse();
+        when(studentService.findById(studentId)).thenReturn(mockResponse);
+
+        StudentFullResponse result = studentController.getFullInfoById(studentId);
+
+        assertNotNull(result);
+        verify(studentService, times(1)).findById(studentId);
+    }
 }
+
